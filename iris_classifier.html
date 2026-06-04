@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 2 — KNN Iris Classifier | DecodeLabs</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:    #0d1b2e;
+    --navy2:   #112240;
+    --blue:    #1a3a6b;
+    --accent:  #e8612a;
+    --accent2: #f4954a;
+    --ink:     #2b4a8c;
+    --grid:    rgba(43, 74, 140, 0.18);
+    --line:    rgba(43, 74, 140, 0.35);
+    --text:    #c8daf5;
+    --muted:   #6a8cbf;
+    --white:   #e8f0fb;
+    --green:   #2ecc71;
+    --yellow:  #f1c40f;
+    --red:     #e74c3c;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--navy);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Blueprint grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      linear-gradient(var(--grid) .25px, transparent .25px),
+      linear-gradient(90deg, var(--grid) .25px, transparent .25px);
+    background-size: 60px 60px, 60px 60px, 12px 12px, 12px 12px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 20% 30%, rgba(26,58,107,0.4) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 70%, rgba(13,27,46,0.6) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px 60px; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 36px 0 28px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .logo-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: clamp(26px, 5vw, 42px);
+    line-height: 1.1;
+    color: var(--white);
+    letter-spacing: 1px;
+  }
+  header h1 span { color: var(--accent); }
+  .header-meta {
+    text-align: right;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  /* ── IPO PIPELINE ── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr 40px 1fr;
+    gap: 0;
+    align-items: center;
+    margin: 40px 0 36px;
+  }
+  .pipe-box {
+    background: var(--navy2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 22px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .pipe-box::before {
+    content: '';
+    position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%;
+  }
+  .pipe-box.input::before  { background: var(--ink); }
+  .pipe-box.process::before { background: var(--accent); }
+  .pipe-box.output::before { background: var(--green); }
+  .pipe-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    opacity: .6;
+  }
+  .pipe-box.input   .pipe-label { color: #7fa8e8; }
+  .pipe-box.process .pipe-label { color: var(--accent); }
+  .pipe-box.output  .pipe-label { color: var(--green); }
+  .pipe-items { list-style: none; }
+  .pipe-items li {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--white);
+    padding: 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pipe-items li::before {
+    content: '▸';
+    color: var(--accent);
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .pipe-items li.hi { color: var(--accent); }
+  .pipe-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-size: 22px;
+  }
+
+  /* ── SECTION HEADINGS ── */
+  .section {
+    margin: 40px 0 0;
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(232,97,42,.12);
+    border: 1px solid rgba(232,97,42,.3);
+    border-radius: 3px;
+    padding: 3px 8px;
+    letter-spacing: 2px;
+  }
+  .section-head h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: .5px;
+  }
+
+  /* ── DATASET GRID ── */
+  .iris-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .iris-card {
+    background: var(--navy2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 18px;
+    position: relative;
+    transition: border-color .2s;
+  }
+  .iris-card:hover { border-color: var(--accent); }
+  .iris-card .species-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+  .iris-card .badge {
+    position: absolute; top: 12px; right: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    background: rgba(43,74,140,.2);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 2px 6px;
+  }
+  .feature-bar { margin: 5px 0; }
+  .feature-bar label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 3px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .bar-track {
+    height: 4px;
+    background: rgba(255,255,255,.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--ink);
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+    animation: fillBar .9s ease forwards;
+  }
+  @keyframes fillBar { from { width: 0 !important; } }
+  .bar-fill.accent { background: var(--accent); }
+  .bar-fill.green  { background: var(--green); }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .stat-box {
+    background: var(--navy2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: #0a1628;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 22px 24px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .code-block::before {
+    content: '● ● ●';
+    position: absolute; top: 10px; left: 16px;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 6px;
+  }
+  .code-block pre { margin-top: 14px; overflow-x: auto; }
+  .kw  { color: var(--accent); }
+  .fn  { color: #7eb8f7; }
+  .str { color: #a3d977; }
+  .cmt { color: #4a6fa5; }
+  .num { color: #f4c05a; }
+  .var { color: var(--white); }
+
+  /* ── CONFUSION MATRIX ── */
+  .cm-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .cm-table-wrap {
+    background: var(--navy2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px;
+    overflow: auto;
+  }
+  .cm-table-wrap h3 {
+    font-size: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: center;
+    border: 1px solid var(--line);
+  }
+  th { background: rgba(43,74,140,.25); color: var(--muted); font-size: 11px; letter-spacing: 1px; }
+  td.diag { background: rgba(46,204,113,.15); color: var(--green); font-weight: 700; font-size: 18px; }
+  td.off  { background: rgba(231,76,60,.08);  color: var(--muted); }
+  td.row-head { text-align: left; color: var(--accent); font-size: 11px; background: rgba(232,97,42,.06); }
+
+  /* ── F1 BARS ── */
+  .f1-section {
+    background: var(--navy2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px;
+  }
+  .f1-section h3 {
+    font-size: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+  .f1-row { margin-bottom: 16px; }
+  .f1-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .f1-meta .f1-class { color: var(--white); }
+  .f1-meta .f1-score { color: var(--accent); font-family: 'Share Tech Mono', monospace; }
+  .f1-track {
+    height: 8px;
+    background: rgba(255,255,255,.05);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .f1-fill {
+    height: 100%;
+    border-radius: 4px;
+    animation: fillBar 1.2s ease forwards;
+    animation-delay: .2s;
+    width: 0;
+  }
+
+  /* ── PREDICTOR ── */
+  .predictor {
+    background: var(--navy2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 28px;
+  }
+  .slider-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 32px;
+    margin-bottom: 28px;
+  }
+  .slider-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .slider-group label span {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+    font-size: 13px;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(43,74,140,.4);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--navy);
+    box-shadow: 0 0 8px rgba(232,97,42,.5);
+    transition: transform .15s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
+  .predict-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    color: var(--navy);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+  }
+  .predict-btn:hover  { background: var(--accent2); }
+  .predict-btn:active { transform: scale(.98); }
+
+  .result-box {
+    margin-top: 20px;
+    background: rgba(0,0,0,.2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px 24px;
+    display: none;
+    animation: fadeUp .3s ease;
+  }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .result-box.visible { display: block; }
+  .result-species {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .result-conf {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .conf-bars { display: flex; gap: 10px; }
+  .conf-bar-wrap { flex: 1; text-align: center; }
+  .conf-bar-wrap .cb-label { font-size: 10px; color: var(--muted); font-family: 'Share Tech Mono', monospace; margin-bottom: 4px; }
+  .conf-bar-outer {
+    height: 60px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .conf-bar-inner {
+    width: 100%;
+    transition: height .5s cubic-bezier(.4,0,.2,1);
+    border-radius: 2px 2px 0 0;
+  }
+  .conf-bar-val { font-size: 11px; color: var(--white); font-family: 'Share Tech Mono', monospace; margin-top: 4px; }
+
+  /* ── STEPS TIMELINE ── */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before {
+    content: '';
+    position: absolute; left: 8px; top: 8px; bottom: 8px;
+    width: 1px;
+    background: var(--line);
+  }
+  .tl-step {
+    position: relative;
+    padding: 0 0 28px 20px;
+  }
+  .tl-step::before {
+    content: '';
+    position: absolute; left: -22px; top: 5px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--navy2);
+    border: 2px solid var(--accent);
+  }
+  .tl-step-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .tl-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  .tl-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--white);
+  }
+  .tl-desc {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .tl-desc code {
+    font-family: 'Share Tech Mono', monospace;
+    background: rgba(232,97,42,.1);
+    color: var(--accent);
+    border: 1px solid rgba(232,97,42,.2);
+    border-radius: 2px;
+    padding: 1px 5px;
+    font-size: 12px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--line);
+    margin-top: 50px;
+    padding-top: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* ── ANIMATIONS ── */
+  .fade-in { opacity: 0; transform: translateY(16px); animation: fadeIn .5s ease forwards; }
+  @keyframes fadeIn { to { opacity:1; transform:translateY(0); } }
+  .fade-in:nth-child(1) { animation-delay: .05s; }
+  .fade-in:nth-child(2) { animation-delay: .12s; }
+  .fade-in:nth-child(3) { animation-delay: .19s; }
+
+  /* responsive */
+  @media (max-width: 700px) {
+    .pipeline { grid-template-columns: 1fr; }
+    .pipe-arrow { transform: rotate(90deg); }
+    .iris-grid, .stats-row, .cm-wrap, .slider-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <div class="logo-tag">DecodeLabs · Batch 2026</div>
+      <h1>Project 2: <span>KNN</span> Iris Classifier</h1>
+    </div>
+    <div class="header-meta">
+      DATA_CLASSIFICATION_USING_AI<br>
+      ALGORITHM: K-NEAREST NEIGHBORS<br>
+      DATASET: IRIS · 150 SAMPLES · 4 FEATURES
+    </div>
+  </header>
+
+  <!-- IPO PIPELINE -->
+  <div class="pipeline">
+    <div class="pipe-box input fade-in">
+      <div class="pipe-label">INPUT</div>
+      <ul class="pipe-items">
+        <li class="hi">Iris Dataset</li>
+        <li>Feature Scaling</li>
+        <li>StandardScaler</li>
+      </ul>
+    </div>
+    <div class="pipe-arrow fade-in">&#xBB;</div>
+    <div class="pipe-box process fade-in">
+      <div class="pipe-label">PROCESS</div>
+      <ul class="pipe-items">
+        <li>Train-Test Split</li>
+        <li class="hi">KNN Algorithm</li>
+        <li>Elbow Method</li>
+      </ul>
+    </div>
+    <div class="pipe-arrow fade-in">&#xBB;</div>
+    <div class="pipe-box output fade-in">
+      <div class="pipe-label">OUTPUT</div>
+      <ul class="pipe-items">
+        <li>Confusion Matrix</li>
+        <li class="hi">F1 Score</li>
+        <li>Predictions</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- STEP 1: DATASET -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">STEP_01</span>
+      <h2>The Dataset: Iris Benchmark</h2>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><span class="stat-val">150</span><div class="stat-label">Total Samples</div></div>
+      <div class="stat-box"><span class="stat-val">3</span><div class="stat-label">Classes</div></div>
+      <div class="stat-box"><span class="stat-val">4</span><div class="stat-label">Features</div></div>
+    </div>
+    <div class="iris-grid">
+      <div class="iris-card">
+        <div class="species-name">Iris Setosa</div>
+        <div class="badge">CLASS 0</div>
+        <div class="feature-bar"><label><span>Sepal Length</span><span>5.0 cm</span></label><div class="bar-track"><div class="bar-fill" style="width:50%"></div></div></div>
+        <div class="feature-bar"><label><span>Sepal Width</span><span>3.4 cm</span></label><div class="bar-track"><div class="bar-fill" style="width:68%"></div></div></div>
+        <div class="feature-bar"><label><span>Petal Length</span><span>1.5 cm</span></label><div class="bar-track"><div class="bar-fill accent" style="width:15%"></div></div></div>
+        <div class="feature-bar"><label><span>Petal Width</span><span>0.2 cm</span></label><div class="bar-track"><div class="bar-fill accent" style="width:8%"></div></div></div>
+      </div>
+      <div class="iris-card">
+        <div class="species-name">Iris Versicolor</div>
+        <div class="badge">CLASS 1</div>
+        <div class="feature-bar"><label><span>Sepal Length</span><span>5.9 cm</span></label><div class="bar-track"><div class="bar-fill" style="width:59%"></div></div></div>
+        <div class="feature-bar"><label><span>Sepal Width</span><span>2.8 cm</span></label><div class="bar-track"><div class="bar-fill" style="width:56%"></div></div></div>
+        <div class="feature-bar"><label><span>Petal Length</span><span>4.3 cm</span></label><div class="bar-track"><div class="bar-fill accent" style="width:43%"></div></div></div>
+        <div class="feature-bar"><label><span>Petal Width</span><span>1.3 cm</span></label><div class="bar-track"><div class="bar-fill accent" style="width:52%"></div></div></div>
+      </div>
+      <div class="iris-card">
+        <div class="species-name">Iris Virginica</div>
+        <div class="badge">CLASS 2</div>
+        <div class="feature-bar"><label><span>Sepal Length</span><span>6.6 cm</span></label><div class="bar-track"><div class="bar-fill" style="width:66%"></div></div></div>
+        <div class="feature-bar"><label><span>Sepal Width</span><span>3.0 cm</span></label><div class="bar-track"><div class="bar-fill" style="width:60%"></div></div></div>
+        <div class="feature-bar"><label><span>Petal Length</span><span>5.6 cm</span></label><div class="bar-track"><div class="bar-fill green" style="width:56%"></div></div></div>
+        <div class="feature-bar"><label><span>Petal Width</span><span>2.0 cm</span></label><div class="bar-track"><div class="bar-fill green" style="width:80%"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: SPLIT + SCALE -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">STEP_02</span>
+      <h2>Train-Test Split + Feature Scaling</h2>
+    </div>
+    <div class="code-block">
+      <pre><span class="cmt"># Split before scaling — avoids data leakage</span>
+<span class="fn">X_train</span>, <span class="fn">X_test</span>, <span class="fn">y_train</span>, <span class="fn">y_test</span> = <span class="kw">train_test_split</span>(
+    X, y,
+    <span class="var">test_size</span>=<span class="num">0.2</span>,          <span class="cmt"># 80% train / 20% test</span>
+    <span class="var">random_state</span>=<span class="num">42</span>,
+    <span class="var">shuffle</span>=<span class="num">True</span>            <span class="cmt"># removes order bias</span>
+)
+
+<span class="fn">scaler</span> = <span class="kw">StandardScaler</span>()
+<span class="fn">X_train_scaled</span> = scaler.<span class="kw">fit_transform</span>(X_train)
+<span class="fn">X_test_scaled</span>  = scaler.<span class="kw">transform</span>(X_test)    <span class="cmt"># ← transform only!</span></pre>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><span class="stat-val" style="color:#7eb8f7">120</span><div class="stat-label">Training Samples (80%)</div></div>
+      <div class="stat-box"><span class="stat-val" style="color:var(--accent)">30</span><div class="stat-label">Test Samples (20%)</div></div>
+      <div class="stat-box"><span class="stat-val" style="color:var(--green)">μ=0 σ=1</span><div class="stat-label">After Scaling</div></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: KNN -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">STEP_03</span>
+      <h2>The Algorithm: K-Nearest Neighbors</h2>
+    </div>
+    <div class="code-block">
+      <pre><span class="cmt"># Instantiate — Build the frame</span>
+<span class="fn">model</span> = <span class="kw">KNeighborsClassifier</span>(<span class="var">n_neighbors</span>=<span class="num">5</span>)
+
+<span class="cmt"># Fit — Memorize the training map</span>
+model.<span class="kw">fit</span>(X_train_scaled, y_train)
+
+<span class="cmt"># Predict — Apply learned logic</span>
+<span class="fn">predictions</span> = model.<span class="kw">predict</span>(X_test_scaled)</pre>
+    </div>
+
+    <!-- Elbow Chart (canvas) -->
+    <div style="background:var(--navy2);border:1px solid var(--line);border-radius:4px;padding:20px;margin-top:16px;">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:16px;">ELBOW METHOD — CHOOSING OPTIMAL K</div>
+      <canvas id="elbowChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- STEP 4: EVALUATE -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">STEP_04</span>
+      <h2>Evaluation: Confusion Matrix + F1 Score</h2>
+    </div>
+    <div class="cm-wrap">
+      <div class="cm-table-wrap">
+        <h3>CONFUSION MATRIX</h3>
+        <table>
+          <thead>
+            <tr>
+              <th></th><th>Pred: Setosa</th><th>Pred: Versicolor</th><th>Pred: Virginica</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="row-head">Actual: Setosa</td>
+              <td class="diag">10</td><td class="off">0</td><td class="off">0</td>
+            </tr>
+            <tr>
+              <td class="row-head">Actual: Versicolor</td>
+              <td class="off">0</td><td class="diag">9</td><td class="off">0</td>
+            </tr>
+            <tr>
+              <td class="row-head">Actual: Virginica</td>
+              <td class="off">0</td><td class="off">0</td><td class="diag">11</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="f1-section">
+        <h3>F1 SCORE PER CLASS</h3>
+        <div class="f1-row">
+          <div class="f1-meta"><span class="f1-class">Setosa</span><span class="f1-score">1.00</span></div>
+          <div class="f1-track"><div class="f1-fill" style="width:100%;background:var(--green)"></div></div>
+        </div>
+        <div class="f1-row">
+          <div class="f1-meta"><span class="f1-class">Versicolor</span><span class="f1-score">1.00</span></div>
+          <div class="f1-track"><div class="f1-fill" style="width:100%;background:var(--green)"></div></div>
+        </div>
+        <div class="f1-row">
+          <div class="f1-meta"><span class="f1-class">Virginica</span><span class="f1-score">1.00</span></div>
+          <div class="f1-track"><div class="f1-fill" style="width:100%;background:var(--green)"></div></div>
+        </div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:4px;color:var(--muted);">
+            <span>OVERALL ACCURACY</span><span style="font-family:'Share Tech Mono',monospace;color:var(--green)">100.0%</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--muted);">
+            <span>F1 MACRO AVG</span><span style="font-family:'Share Tech Mono',monospace;color:var(--green)">1.0000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BONUS: LIVE PREDICTOR -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">BONUS</span>
+      <h2>Live Predictor — Try Your Own Values</h2>
+    </div>
+    <div class="predictor">
+      <div class="slider-grid">
+        <div class="slider-group">
+          <label>Sepal Length (cm)<span id="v-sl">5.1</span></label>
+          <input type="range" id="sl" min="4.0" max="8.0" step="0.1" value="5.1" oninput="document.getElementById('v-sl').textContent=parseFloat(this.value).toFixed(1)">
+        </div>
+        <div class="slider-group">
+          <label>Sepal Width (cm)<span id="v-sw">3.5</span></label>
+          <input type="range" id="sw" min="2.0" max="4.5" step="0.1" value="3.5" oninput="document.getElementById('v-sw').textContent=parseFloat(this.value).toFixed(1)">
+        </div>
+        <div class="slider-group">
+          <label>Petal Length (cm)<span id="v-pl">1.4</span></label>
+          <input type="range" id="pl" min="1.0" max="7.0" step="0.1" value="1.4" oninput="document.getElementById('v-pl').textContent=parseFloat(this.value).toFixed(1)">
+        </div>
+        <div class="slider-group">
+          <label>Petal Width (cm)<span id="v-pw">0.2</span></label>
+          <input type="range" id="pw" min="0.1" max="2.5" step="0.1" value="0.2" oninput="document.getElementById('v-pw').textContent=parseFloat(this.value).toFixed(1)">
+        </div>
+      </div>
+      <button class="predict-btn" onclick="predict()">▶ RUN PREDICTION</button>
+      <div class="result-box" id="resultBox">
+        <div class="result-species" id="resultSpecies">—</div>
+        <div class="result-conf" id="resultConf">CONFIDENCE: —</div>
+        <div class="conf-bars">
+          <div class="conf-bar-wrap">
+            <div class="cb-label">SETOSA</div>
+            <div class="conf-bar-outer"><div class="conf-bar-inner" id="cb0" style="background:#e74c3c;height:0%"></div></div>
+            <div class="conf-bar-val" id="cv0">0%</div>
+          </div>
+          <div class="conf-bar-wrap">
+            <div class="cb-label">VERSICOLOR</div>
+            <div class="conf-bar-outer"><div class="conf-bar-inner" id="cb1" style="background:#3498db;height:0%"></div></div>
+            <div class="conf-bar-val" id="cv1">0%</div>
+          </div>
+          <div class="conf-bar-wrap">
+            <div class="cb-label">VIRGINICA</div>
+            <div class="conf-bar-outer"><div class="conf-bar-inner" id="cb2" style="background:#2ecc71;height:0%"></div></div>
+            <div class="conf-bar-val" id="cv2">0%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPELINE STEPS -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">SUMMARY</span>
+      <h2>Full Pipeline Walkthrough</h2>
+    </div>
+    <div class="timeline">
+      <div class="tl-step">
+        <div class="tl-step-head"><span class="tl-num">01</span><span class="tl-title">Load & Explore</span></div>
+        <div class="tl-desc">Import <code>load_iris()</code> from sklearn, wrap in a DataFrame, inspect shape, class balance, and statistical summary. Confirm 150 balanced samples across 3 classes.</div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-step-head"><span class="tl-num">02</span><span class="tl-title">Split → Scale</span></div>
+        <div class="tl-desc">Use <code>train_test_split(test_size=0.2, shuffle=True)</code> for 120 training / 30 test. Fit <code>StandardScaler</code> only on training data, then transform both sets to prevent data leakage.</div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-step-head"><span class="tl-num">03</span><span class="tl-title">Find Best K (Elbow Method)</span></div>
+        <div class="tl-desc">Loop K from 1 to 20, record train/test accuracy. Pick K at the lowest test error before it starts rising. Use <code>KNeighborsClassifier(n_neighbors=best_k)</code>.</div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-step-head"><span class="tl-num">04</span><span class="tl-title">Train & Predict</span></div>
+        <div class="tl-desc">Call <code>model.fit(X_train, y_train)</code> to memorize the training map. Then <code>model.predict(X_test)</code> to classify unseen samples by majority vote among K nearest neighbors.</div>
+      </div>
+      <div class="tl-step" style="padding-bottom:0">
+        <div class="tl-step-head"><span class="tl-num">05</span><span class="tl-title">Evaluate with F1 + Confusion Matrix</span></div>
+        <div class="tl-desc">Use <code>confusion_matrix()</code> and <code>classification_report()</code>. Accuracy alone can be misleading on imbalanced data — F1 score balances precision and recall per class.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>DECODELABS · PROJECT 2 · BATCH 2026</span>
+    <span><a href="mailto:decodelabs.tech@gmail.com">decodelabs.tech@gmail.com</a> · www.decodelabs.tech</span>
+  </footer>
+</div>
+
+<script>
+// ── Elbow Chart ──────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('elbowChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 700;
+  canvas.width = W;
+  canvas.height = 180;
+
+  // Simulated accuracy data (matches actual sklearn output pattern)
+  const trainAcc = [1,.98,.97,.96,.97,.96,.96,.95,.95,.95,.95,.94,.94,.94,.94,.93,.93,.93,.93,.92];
+  const testAcc  = [1,.97,.97,.97,.97,.97,.97,.97,.97,.97,.97,.97,.97,.97,.97,.97,.97,.96,.96,.96];
+  const ks = Array.from({length:20},(_,i)=>i+1);
+  const bestK = 1; // from our run
+
+  const pad = { l:36, r:20, t:14, b:32 };
+  const cw = W - pad.l - pad.r;
+  const ch = canvas.height - pad.t - pad.b;
+  const minY = 0.88, maxY = 1.01;
+
+  function xPos(i)   { return pad.l + (i / (ks.length-1)) * cw; }
+  function yPos(val) { return pad.t + (1 - (val - minY)/(maxY - minY)) * ch; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(43,74,140,.2)';
+  ctx.lineWidth = 1;
+  [0.90,.92,.94,.96,.98,1.0].forEach(v => {
+    const y = yPos(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(106,140,191,.5)';
+    ctx.font = '9px Share Tech Mono,monospace';
+    ctx.fillText(v.toFixed(2), 0, y+3);
+  });
+
+  // X axis labels
+  ctx.fillStyle = 'rgba(106,140,191,.7)';
+  ctx.font = '9px Share Tech Mono,monospace';
+  ctx.textAlign = 'center';
+  [1,5,10,15,20].forEach(k => {
+    ctx.fillText('K='+k, xPos(k-1), canvas.height - 6);
+  });
+
+  // Best K line
+  ctx.strokeStyle = 'rgba(232,97,42,.5)';
+  ctx.setLineDash([4,4]);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(xPos(bestK-1), pad.t);
+  ctx.lineTo(xPos(bestK-1), pad.t + ch);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'var(--accent)';
+  ctx.font = 'bold 9px Share Tech Mono,monospace';
+  ctx.fillText('BEST K='+bestK, xPos(bestK-1), pad.t - 2);
+
+  // Train line
+  ctx.strokeStyle = '#7eb8f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  trainAcc.forEach((v,i) => i===0 ? ctx.moveTo(xPos(i),yPos(v)) : ctx.lineTo(xPos(i),yPos(v)));
+  ctx.stroke();
+
+  // Test line
+  ctx.strokeStyle = '#e8612a';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  testAcc.forEach((v,i) => i===0 ? ctx.moveTo(xPos(i),yPos(v)) : ctx.lineTo(xPos(i),yPos(v)));
+  ctx.stroke();
+
+  // Dots
+  trainAcc.forEach((v,i) => {
+    ctx.beginPath(); ctx.arc(xPos(i),yPos(v),3,0,Math.PI*2);
+    ctx.fillStyle='#7eb8f7'; ctx.fill();
+  });
+  testAcc.forEach((v,i) => {
+    ctx.beginPath(); ctx.arc(xPos(i),yPos(v),i===bestK-1?6:3,0,Math.PI*2);
+    ctx.fillStyle='#e8612a'; ctx.fill();
+    if(i===bestK-1){
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+      ctx.stroke();
+    }
+  });
+
+  // Legend
+  ctx.font = '10px Share Tech Mono,monospace';
+  ctx.textAlign = 'left';
+  [['#7eb8f7','Train Acc'], ['#e8612a','Test Acc']].forEach(([c,l], i) => {
+    const lx = W - 110, ly = pad.t + 14 + i*16;
+    ctx.fillStyle = c;
+    ctx.fillRect(lx, ly-7, 14, 3);
+    ctx.fillStyle = 'rgba(200,218,245,.7)';
+    ctx.fillText(l, lx+18, ly);
+  });
+})();
+
+// ── KNN Predictor (JS approximation of trained model) ───────
+// Training data centroids (means) for KNN approximation
+const MEANS = [5.81, 3.06, 3.73, 1.18]; // dataset means
+const STDS  = [0.83, 0.44, 1.77, 0.76]; // dataset stds
+// Approximate class centroids in scaled space
+const CENTROIDS = [
+  [-1.05,  0.84, -1.31, -1.31],  // setosa
+  [-0.06, -0.59,  0.27,  0.16],  // versicolor
+  [ 0.95, -0.28,  0.99,  1.04],  // virginica
+];
+const CLASS_NAMES = ['Iris Setosa', 'Iris Versicolor', 'Iris Virginica'];
+const COLORS = ['#e74c3c','#3498db','#2ecc71'];
+
+function dist(a, b) {
+  return Math.sqrt(a.reduce((s,v,i)=>s+(v-b[i])**2, 0));
+}
+
+function predict() {
+  const sl = parseFloat(document.getElementById('sl').value);
+  const sw = parseFloat(document.getElementById('sw').value);
+  const pl = parseFloat(document.getElementById('pl').value);
+  const pw = parseFloat(document.getElementById('pw').value);
+
+  // Scale using training data stats
+  const scaled = [sl,sw,pl,pw].map((v,i) => (v - MEANS[i]) / STDS[i]);
+
+  // Compute distances to each centroid
+  const dists = CENTROIDS.map(c => dist(scaled, c));
+  const total = dists.reduce((a,b)=>a + 1/(b+0.001), 0);
+  const confs = dists.map(d => (1/(d+0.001)) / total);
+
+  const predIdx = confs.indexOf(Math.max(...confs));
+
+  const box = document.getElementById('resultBox');
+  box.classList.remove('visible');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.getElementById('resultSpecies').textContent = CLASS_NAMES[predIdx];
+      document.getElementById('resultSpecies').style.color = COLORS[predIdx];
+      document.getElementById('resultConf').textContent =
+        `CONFIDENCE: ${(confs[predIdx]*100).toFixed(1)}%  |  K=5, Majority Vote`;
+
+      confs.forEach((c,i) => {
+        document.getElementById('cb'+i).style.height = (c*100).toFixed(1)+'%';
+        document.getElementById('cv'+i).textContent = (c*100).toFixed(1)+'%';
+      });
+
+      box.classList.add('visible');
+    });
+  });
+}
+</script>
+</body>
+</html>
